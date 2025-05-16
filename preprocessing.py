@@ -156,7 +156,7 @@ def save_all_sentence_labels(json_folder, save_dir):
 
 
 # 입력 경로
-json_folder = "/content/drive/MyDrive/lip_audio_multimodal/input_texts"
+json_folder = "/content/drive/MyDrive/lip_audio_multimodal/input_texts1"
 video_folder = "/content/drive/MyDrive/lip_audio_multimodal/input_videos"
 
 # 출력 경로
