@@ -155,10 +155,12 @@ def save_all_sentence_labels(json_folder, save_dir):
         save_sentence_labels(json_path, save_dir)
 
 
-# video_folder = "input_videos"
-# json_folder = "input_texts1"
-# npy_dir = "processed_dataset/npy"
-# text_dir = "processed_dataset/text"
-# wav_dir = "input_videos"    
+# 입력 경로
+json_folder = "/content/drive/MyDrive/lip_audio_multimodal/input_texts"
+video_folder = "/content/drive/MyDrive/lip_audio_multimodal/input_videos"
 
-# crop_lip_all(json_folder, video_folder, npy_dir)
+# 출력 경로
+landmark_npy_dir = "/content/drive/MyDrive/lip_audio_multimodal/processed_dataset/landmark_npy"
+
+# landmark 좌표 추출 및 저장 실행
+extract_lip_landmarks_all(json_folder, video_folder, landmark_npy_dir)
