@@ -36,7 +36,7 @@ def collate_fn(batch, pad_id=0, use_landmark=True):
 
     return {
         "lip1": lip1_padded,                       # [B, T, 27, 2] or [B, T, C, H, W]
-        "lip1_lengths": torch.tensor(lip1_lengths),
+        "lip1_lengths": torch.tensor(lip1_lengths, dtype=torch.long),
 
         "text1": text1_padded,
         "text1_lengths": torch.tensor(text1_lengths),

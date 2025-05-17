@@ -7,24 +7,28 @@ from transformers import Wav2Vec2Model
 # 📌 영상 인코더: VisualEncoder
 # -------------------------------
 class LandmarkEncoder(nn.Module):
-    def __init__(self, input_dim=54, hidden_dim=128, lstm_layers=2, bidirectional=True):
+    def __init__(self, input_dim=54, hidden_dim=128, lstm_layers=2, bidirectional=True, dropout=0.3):
         super().__init__()
         self.rnn = nn.LSTM(
             input_size=input_dim,
             hidden_size=hidden_dim,
             num_layers=lstm_layers,
+            dropout=dropout if lstm_layers > 1 else 0.0,
             batch_first=True,
             bidirectional=bidirectional
         )
+
+        self.dropout = nn.Dropout(dropout)
         self.output_dim = hidden_dim * 2 if bidirectional else hidden_dim
 
     def forward(self, x):
-        # x: (B, T, 27, 2) → reshape to (B, T, 54)
+        # x: (B, T, 27, 2) → (B, T, 54)
         B, T, N, D = x.shape
         x = x.view(B, T, N * D)
-        output, _ = self.rnn(x)
-        return output  # [B, T, output_dim]
 
+        output, _ = self.rnn(x)
+        output = self.dropout(output)  # Dropout after LSTM
+        return output  # [B, T, output_dim]
 
 # -------------------------------
 # 🎧 음성 인코더: HuggingFaceAudioEncoder

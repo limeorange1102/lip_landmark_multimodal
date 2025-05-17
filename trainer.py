@@ -83,7 +83,7 @@ class MultimodalTrainer:
             loss_audio = self.ctc_loss(log_probs_audio.transpose(0, 1), text1, input_lengths_audio, len1)
             loss_visual1 = self.ctc_loss(log_probs_visual1.transpose(0, 1), text1, input_lengths_visual1, len1)
 
-            loss = loss1 + 1.0 * loss_audio + 1.5 * loss_visual1
+            loss = loss1 + 1.0 * loss_audio + 0.5 * loss_visual1
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item()

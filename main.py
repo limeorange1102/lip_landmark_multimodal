@@ -26,14 +26,6 @@ def set_seed(seed=42):
     np.random.seed(seed)
     random.seed(seed)
 
-def generate_fixed_pairs(sentence_list, n_pairs=1000):
-    pairs = []
-    indices = list(range(len(sentence_list)))
-    for _ in range(n_pairs):
-        i, j = random.sample(indices, 2)
-        pairs.append((sentence_list[i], sentence_list[j]))
-    return pairs
-
 def save_checkpoint(epoch, trainer, path):
     torch.save({
         'epoch': epoch,
@@ -67,15 +59,17 @@ def main():
 
     tokenizer = Tokenizer(vocab_path="input_videos/tokenizer800.vocab")
     sentence_list = build_data_list(json_folder, npy_dir, text_dir, wav_dir)
-    train_sent, val_sent = train_test_split(sentence_list, test_size=0.1, random_state=42)
-    val_pairs = generate_fixed_pairs(val_sent, n_pairs=500)
+
+    # ✅ 전체 문장에서 train/val/test 분할
+    train_sent, temp_sent = train_test_split(sentence_list, test_size=0.2, random_state=42)
+    val_sent, test_sent = train_test_split(temp_sent, test_size=0.5, random_state=42)
 
     train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=True)
     val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=True)
 
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=2,
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=4,
                             collate_fn=lambda x: collate_fn(x, use_landmark=True))
-    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=2,
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=2,
                             collate_fn=lambda x: collate_fn(x, use_landmark=True))
 
     visual_encoder = LandmarkEncoder(
@@ -134,12 +128,16 @@ def main():
     wer_history = []
     loss_history = []
 
+    patience = 5
+    no_improve_counter = 0
+    max_epochs = 20
+
     if os.path.exists(last_ckpt_path):
-        logging.info("🔁 기존 체크포인트 불러오는 중...")
-        print("🔁 기존 체크포인트 불러오는 중...", flush=True)
+        logging.info("🔁 기전 체크포인트 불러오는 중...")
+        print("🔁 기전 체크포인트 불러오는 중...", flush=True)
         start_epoch = load_checkpoint(trainer, last_ckpt_path)
-        logging.info(f"➡️  Epoch {start_epoch}부터 재개")
-        print(f"➡️  Epoch {start_epoch}부터 재개", flush=True)
+        logging.info(f"➞️  Epoch {start_epoch}부터 재개")
+        print(f"➞️  Epoch {start_epoch}부터 재개", flush=True)
     print(f"🧪 start_epoch={start_epoch}")
 
     with open(wer_log_path, "w") as f:
@@ -150,9 +148,9 @@ def main():
         f.write("epoch,sentence_acc\n")
 
     print("▶️ for epoch 진입", flush=True)
-    for epoch in range(start_epoch, 21):
-        logging.info(f"\n📚 Epoch {epoch}/20")
-        print(f"\n📚 Epoch {epoch}/20", flush=True)
+    for epoch in range(start_epoch, max_epochs + 1):
+        logging.info(f"\n📚 Epoch {epoch}/{max_epochs}")
+        print(f"\n📚 Epoch {epoch}/{max_epochs}", flush=True)
         loss = trainer.train_epoch(train_loader)
         loss_history.append(loss)
 
@@ -167,26 +165,34 @@ def main():
             f.write(f"{epoch},{sentence_acc:.4f}\n")
 
         save_checkpoint(epoch, trainer, last_ckpt_path)
-        logging.info("💾 마지막 체크포인트 저장 완료")
-        print("💾 마지막 체크포인트 저장 완료", flush=True)
+        logging.info("📎 마지막 체크포인트 저장 완료")
+        print("📎 마지막 체크포인트 저장 완료", flush=True)
 
         if wer_score < best_wer:
             best_wer = wer_score
+            no_improve_counter = 0
             save_checkpoint(epoch, trainer, best_ckpt_path)
             logging.info("🏅 Best 모델 갱신 및 저장 완료")
             print("🏅 Best 모델 갱신 및 저장 완료", flush=True)
+        else:
+            no_improve_counter += 1
+            print(f"🔻 성능 감소 무: {no_improve_counter}/{patience}", flush=True)
+
+        if no_improve_counter >= patience:
+            print("🚫 Early stopping triggered! 학습 중단.", flush=True)
+            break
 
     # 시각화
     plt.figure(figsize=(10, 4))
     plt.subplot(1, 2, 1)
-    plt.plot(range(start_epoch, 21), loss_history, marker='o', color='orange')
+    plt.plot(range(start_epoch, start_epoch + len(loss_history)), loss_history, marker='o', color='orange')
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Training Loss over Epochs")
     plt.grid(True)
 
     plt.subplot(1, 2, 2)
-    plt.plot(range(start_epoch, 21), wer_history, marker='o')
+    plt.plot(range(start_epoch, start_epoch + len(wer_history)), wer_history, marker='o')
     plt.xlabel("Epoch")
     plt.ylabel("WER")
     plt.title("Validation WER over Epochs")
