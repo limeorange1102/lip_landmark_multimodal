@@ -88,7 +88,7 @@ def main():
     )
 
     decoder1 = CTCDecoder(
-        input_dim=512,
+        input_dim=1024,
         vocab_size=tokenizer.vocab_size,
         blank_id=tokenizer.blank_id
     )

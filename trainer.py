@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from jiwer import wer
 from tqdm import tqdm
 import numpy as np
+import random
 
 class MultimodalTrainer:
     def __init__(self, visual_encoder, audio_encoder, fusion_module,
@@ -70,7 +71,6 @@ class MultimodalTrainer:
 
             fused_feat1 = self.fusion_module(visual_feat1, audio_feat)
 
-            # 🎯 수정: landmark 기반 입력이므로 직접 길이 계산
             input_lengths1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
             input_lengths_audio = torch.full((audio_feat.size(0),), audio_feat.size(1), dtype=torch.long).to(self.device)
             input_lengths_visual1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
@@ -110,8 +110,12 @@ class MultimodalTrainer:
         self.audio_encoder.eval()
         self.fusion_module.eval()
         self.decoder1.eval()
+        self.decoder_audio.eval()
+        self.decoder_visual.eval()
 
         all_refs1, all_hyps1 = [], []
+        global_index = 0
+        sampled_indices = set(random.sample(range(len(dataloader.dataset)), min(50, len(dataloader.dataset))))
 
         with torch.no_grad():
             for batch in dataloader:
@@ -124,17 +128,36 @@ class MultimodalTrainer:
                 visual_feat1 = self.visual_encoder(lip1)
                 audio_feat = self.audio_encoder(audio, attention_mask=audio_mask)
                 fused_feat1 = self.fusion_module(visual_feat1, audio_feat)
+
                 log_probs1 = self.decoder1(fused_feat1)
+                log_probs_audio = self.decoder_audio(audio_feat)
+                log_probs_visual = self.decoder_visual(visual_feat1)
 
                 pred1 = torch.argmax(log_probs1, dim=-1).cpu().numpy()
+                pred_audio = torch.argmax(log_probs_audio, dim=-1).cpu().numpy()
+                pred_visual = torch.argmax(log_probs_visual, dim=-1).cpu().numpy()
+
                 input_lengths1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
+                input_lengths_audio = torch.full((audio_feat.size(0),), audio_feat.size(1), dtype=torch.long).to(self.device)
+                input_lengths_visual1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
 
                 for i in range(len(pred1)):
                     p_ids = self.ctc_decode(pred1[i][:input_lengths1[i]])
+                    p_audio_ids = self.ctc_decode(pred_audio[i][:input_lengths_audio[i]])
+                    p_visual_ids = self.ctc_decode(pred_visual[i][:input_lengths_visual1[i]])
                     ref = self.tokenizer.decode(text1[i][:len1[i]].cpu().numpy())
                     hyp = self.tokenizer.decode(p_ids)
+
                     all_hyps1.append(hyp)
                     all_refs1.append(ref)
+
+                    if global_index in sampled_indices:
+                        print(f"[🧠 멀티모달] {hyp}")
+                        print(f"[🔊 오디오 전용] {self.tokenizer.decode(p_audio_ids)}")
+                        print(f"[👄 입모양 전용] {self.tokenizer.decode(p_visual_ids)}")
+                        print(f"[✅ 정답 문장] {ref}\n")
+
+                    global_index += 1
 
         wer1 = wer(all_refs1, all_hyps1)
         sentence_acc1 = np.mean([ref.strip() == hyp.strip() for ref, hyp in zip(all_refs1, all_hyps1)])
