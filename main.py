@@ -73,7 +73,7 @@ def main():
                             collate_fn=lambda x: collate_fn(x, use_landmark=True))
 
     visual_encoder = LandmarkEncoder(
-        input_dim=54,         # 27 landmarks × 2
+        input_dim=80,         # 27 landmarks × 2
         hidden_dim=256,
         lstm_layers=2,
         bidirectional=True
