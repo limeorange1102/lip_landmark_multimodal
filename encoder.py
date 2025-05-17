@@ -7,7 +7,7 @@ from transformers import Wav2Vec2Model
 # 📌 영상 인코더: VisualEncoder
 # -------------------------------
 class LandmarkEncoder(nn.Module):
-    def __init__(self, input_dim=54, hidden_dim=128, lstm_layers=2, bidirectional=True, dropout=0.3):
+    def __init__(self, input_dim=80, hidden_dim=128, lstm_layers=2, bidirectional=True, dropout=0.3):
         super().__init__()
         self.rnn = nn.LSTM(
             input_size=input_dim,
