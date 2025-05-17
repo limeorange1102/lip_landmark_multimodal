@@ -53,7 +53,7 @@ def main():
     set_seed()
 
     json_folder = "input_texts"
-    npy_dir = "processed_dataset/npy"
+    npy_dir = "processed_dataset/landmark_npy"
     text_dir = "processed_dataset/text"
     wav_dir = "input_videos"
 
