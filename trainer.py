@@ -10,6 +10,7 @@ class MultimodalTrainer:
     def __init__(self, visual_encoder, audio_encoder, fusion_module,
                  decoder1, decoder_audio, decoder_visual,
                  tokenizer, learning_rate=1e-4, device="cuda"):
+        
         self.visual_encoder = visual_encoder.to(device)
         self.audio_encoder = audio_encoder.to(device)
         self.fusion_module = fusion_module.to(device)
@@ -65,6 +66,8 @@ class MultimodalTrainer:
             text1 = batch["text1"].to(self.device)
             len1 = batch["text1_lengths"].to(self.device)
             lip1_lengths = batch["lip1_lengths"].to(self.device)
+
+            print("🔥 lip1 shape:", lip1.shape)
 
             visual_feat1 = self.visual_encoder(lip1)
             audio_feat = self.audio_encoder(audio, attention_mask=audio_mask)
