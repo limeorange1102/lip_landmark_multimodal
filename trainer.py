@@ -67,8 +67,6 @@ class MultimodalTrainer:
             len1 = batch["text1_lengths"].to(self.device)
             lip1_lengths = batch["lip1_lengths"].to(self.device)
 
-            print("🔥 lip1 shape:", lip1.shape)
-
             visual_feat1 = self.visual_encoder(lip1)
             audio_feat = self.audio_encoder(audio, attention_mask=audio_mask)
 
