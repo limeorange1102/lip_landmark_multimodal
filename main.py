@@ -73,10 +73,9 @@ def main():
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
 
     visual_encoder = VisualEncoder(
-    pretrained_path="weights/Video_only_model.pt",
-    hidden_dim=256,
-    lstm_layers=2,
-    bidirectional=True
+        hidden_dim=256,
+        lstm_layers=2,
+        bidirectional=True
     )
 
     audio_encoder = AudioEncoder(freeze=False)
@@ -149,6 +148,14 @@ def main():
 
     print("▶️ for epoch 진입", flush=True)
     for epoch in range(start_epoch, max_epochs + 1):
+
+        # ✅ ResNet freeze/unfreeze 조절
+        if epoch < 5:
+            trainer.visual_encoder.freeze_resnet()
+            print(f"🧊 Epoch {epoch}: ResNet frozen")
+        else:
+            trainer.visual_encoder.unfreeze_resnet()
+            print(f"🔥 Epoch {epoch}: ResNet unfrozen")
         logging.info(f"\n📚 Epoch {epoch}/{max_epochs}")
         print(f"\n📚 Epoch {epoch}/{max_epochs}", flush=True)
         loss = trainer.train_epoch(train_loader)
