@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class FusionModule(nn.Module):
+class CrossAttentionFusion(nn.Module):
     def __init__(self, visual_dim, audio_dim, hidden_dim):
-        super(FusionModule, self).__init__()
+        super(CrossAttentionFusion, self).__init__()
         self.visual_fc = nn.Linear(visual_dim, hidden_dim)
         self.audio_fc = nn.Linear(audio_dim, hidden_dim)
         self.output_fc = nn.Linear(hidden_dim * 2, hidden_dim)
