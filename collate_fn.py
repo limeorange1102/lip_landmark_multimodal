@@ -1,7 +1,7 @@
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
-def collate_fn(batch, pad_id=0, use_landmark=True):
+def collate_fn(batch, pad_id=0, use_landmark=False):
     """
     batch: list of dicts from Dataset
     Each dict contains:

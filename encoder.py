@@ -6,29 +6,39 @@ from transformers import Wav2Vec2Model
 # -------------------------------
 # 📌 영상 인코더: VisualEncoder
 # -------------------------------
-class LandmarkEncoder(nn.Module):
-    def __init__(self, input_dim=80, hidden_dim=128, lstm_layers=2, bidirectional=True, dropout=0.3):
+class VisualEncoder(nn.Module):
+    def __init__(self, pretrained_path=None, hidden_dim=128, lstm_layers=2, bidirectional=True):
         super().__init__()
+
+        self.resnet = models.resnet34(weights=None)
+        self.resnet.fc = nn.Identity()  # feature만 추출
+
         self.rnn = nn.LSTM(
-            input_size=input_dim,
+            input_size=512,
             hidden_size=hidden_dim,
             num_layers=lstm_layers,
-            dropout=dropout if lstm_layers > 1 else 0.0,
             batch_first=True,
             bidirectional=bidirectional
         )
 
-        self.dropout = nn.Dropout(dropout)
         self.output_dim = hidden_dim * 2 if bidirectional else hidden_dim
 
-    def forward(self, x):
-        # x: (B, T, 27, 2) → (B, T, 54)
-        B, T, N, D = x.shape
-        x = x.view(B, T, N * D)
+        if pretrained_path is not None:
+            state_dict = torch.load(pretrained_path, map_location='cpu')
+            try:
+                self.resnet.load_state_dict(state_dict, strict=False)
+                print(f"✅ VisualEncoder weights loaded from {pretrained_path}")
+            except Exception as e:
+                print(f"❌ Failed to load VisualEncoder weights: {e}")
 
-        output, _ = self.rnn(x)
-        output = self.dropout(output)  # Dropout after LSTM
-        return output  # [B, T, output_dim]
+    def forward(self, x):
+        # x: (B, T, C, H, W)
+        B, T, C, H, W = x.shape
+        x = x.view(B * T, C, H, W)
+        feats = self.resnet(x)         # (B*T, 512)
+        feats = feats.view(B, T, -1)   # (B, T, 512)
+        output, _ = self.rnn(feats)
+        return output  # (B, T, output_dim)
 
 # -------------------------------
 # 🎧 음성 인코더: HuggingFaceAudioEncoder

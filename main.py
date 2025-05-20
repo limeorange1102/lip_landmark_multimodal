@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from single_speaker_dataset import SingleSpeakerDataset
 from collate_fn import collate_fn
-from encoder import LandmarkEncoder, AudioEncoder
+from encoder import VisualEncoder, AudioEncoder
 from fusion_module import CrossAttentionFusion
 from decoder import CTCDecoder
 from trainer import MultimodalTrainer
@@ -53,7 +53,7 @@ def main():
     set_seed()
 
     json_folder = "input_texts"
-    npy_dir = "processed_dataset/landmark_npy"
+    npy_dir = "processed_dataset/npy"
     text_dir = "processed_dataset/text"
     wav_dir = "input_videos"
 
@@ -64,19 +64,19 @@ def main():
     train_sent, temp_sent = train_test_split(sentence_list, test_size=0.2, random_state=42)
     val_sent, test_sent = train_test_split(temp_sent, test_size=0.5, random_state=42)
 
-    train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=True)
-    val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=True)
+    train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
+    val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=False)
 
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=2,
-                            collate_fn=lambda x: collate_fn(x, use_landmark=True))
+                            collate_fn=lambda x: collate_fn(x, use_landmark=False))
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=2,
-                            collate_fn=lambda x: collate_fn(x, use_landmark=True))
+                            collate_fn=lambda x: collate_fn(x, use_landmark=False))
 
-    visual_encoder = LandmarkEncoder(
-        input_dim=80,         # 27 landmarks × 2
-        hidden_dim=256,
-        lstm_layers=2,
-        bidirectional=True
+    visual_encoder = VisualEncoder(
+    pretrained_path="weights/Video_only_model.pt",
+    hidden_dim=256,
+    lstm_layers=2,
+    bidirectional=True
     )
 
     audio_encoder = AudioEncoder(freeze=False)

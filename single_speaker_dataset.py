@@ -21,6 +21,9 @@ class SingleSpeakerDataset(torch.utils.data.Dataset):
 
         # 🟠 Load waveform
         audio, sr = librosa.load(s["audio_path"], sr=None)
+        start_sample = int(s["start_time"] * sr)
+        end_sample = int(s["end_time"] * sr)
+        audio = audio[start_sample:end_sample]
         audio = np.asarray(audio).flatten()
 
         # 🟠 Load visual input
