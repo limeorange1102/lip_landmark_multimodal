@@ -2,49 +2,36 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class CrossAttentionFusion(nn.Module):
-    def __init__(self, visual_dim, audio_dim, fused_dim):
-        super().__init__()
+class FusionModule(nn.Module):
+    def __init__(self, visual_dim, audio_dim, hidden_dim):
+        super(FusionModule, self).__init__()
+        self.visual_fc = nn.Linear(visual_dim, hidden_dim)
+        self.audio_fc = nn.Linear(audio_dim, hidden_dim)
+        self.output_fc = nn.Linear(hidden_dim * 2, hidden_dim)
 
-        self.query_v = nn.Linear(visual_dim, fused_dim)
-        self.key_a = nn.Linear(audio_dim, fused_dim)
-        self.value_a = nn.Linear(audio_dim, fused_dim)
+    def match_time_resolution(self, audio_feat, visual_feat):
+        """
+        Resample audio feature to match visual feature length
+        audio_feat: (B, T_audio, D_audio)
+        visual_feat: (B, T_visual, D_visual)
+        """
+        B, T_v, _ = visual_feat.shape
+        B, T_a, D_a = audio_feat.shape
 
-        self.query_a = nn.Linear(audio_dim, fused_dim)
-        self.key_v = nn.Linear(visual_dim, fused_dim)
-        self.value_v = nn.Linear(visual_dim, fused_dim)
-
-        self.lstm = nn.LSTM(
-            input_size=fused_dim * 2,  # concat(fused_v, fused_a)
-            hidden_size=fused_dim,
-            num_layers=1,
-            dropout=0.3,
-            bidirectional=True,
-            batch_first=True
-        )
-
-        self.output_dim = fused_dim * 2
+        if T_a != T_v:
+            # Permute to (B, D, T) for interpolation
+            audio_feat = audio_feat.permute(0, 2, 1)
+            audio_feat = F.interpolate(audio_feat, size=T_v, mode='linear', align_corners=True)
+            audio_feat = audio_feat.permute(0, 2, 1)
+        return audio_feat
 
     def forward(self, visual_feat, audio_feat):
-        # visual_feat: (B, T, Dv), audio_feat: (B, T, Da)
+        # Align time dimension
+        audio_feat = self.match_time_resolution(audio_feat, visual_feat)
 
-        # Visual attends to Audio
-        Qv = self.query_v(visual_feat)
-        Ka = self.key_a(audio_feat)
-        Va = self.value_a(audio_feat)
-        attn_score_va = torch.matmul(Qv, Ka.transpose(-2, -1)) / (Qv.size(-1) ** 0.5)
-        attn_weight_va = F.softmax(attn_score_va, dim=-1)
-        fused_va = torch.matmul(attn_weight_va, Va)  # (B, T, Df)
+        visual_emb = self.visual_fc(visual_feat)  # (B, T, H)
+        audio_emb = self.audio_fc(audio_feat)     # (B, T, H)
 
-        # Audio attends to Visual
-        Qa = self.query_a(audio_feat)
-        Kv = self.key_v(visual_feat)
-        Vv = self.value_v(visual_feat)
-        attn_score_av = torch.matmul(Qa, Kv.transpose(-2, -1)) / (Qa.size(-1) ** 0.5)
-        attn_weight_av = F.softmax(attn_score_av, dim=-1)
-        fused_av = torch.matmul(attn_weight_av, Vv)  # (B, T, Df)
-
-        # Concat both directions
-        fused = torch.cat([fused_va, fused_av], dim=-1)  # (B, T, 2*Df)
-        output, _ = self.lstm(fused)  # BiLSTM
-        return output  # (B, T, 2*fused_dim)
+        fused = torch.cat([visual_emb, audio_emb], dim=-1)  # (B, T, 2H)
+        output = self.output_fc(fused)  # (B, T, H)
+        return output
