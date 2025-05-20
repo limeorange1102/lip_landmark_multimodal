@@ -115,7 +115,7 @@ def main():
         device=device
     )
 
-    drive_ckpt_dir = "/content/drive/MyDrive/lip_audio_multimodal/checkpoints"
+    drive_ckpt_dir = "/content/drive/MyDrive/lip_audio_multimodal/checkpoints_single"
     os.makedirs(drive_ckpt_dir, exist_ok=True)
 
     last_ckpt_path = os.path.join(drive_ckpt_dir, "last_checkpoint.pt")
