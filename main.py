@@ -152,13 +152,17 @@ def main():
         # ✅ ResNet freeze/unfreeze 조절
         if epoch < 5:
             trainer.visual_encoder.freeze_resnet()
+            for param in trainer.audio_encoder.parameters():
+                param.requires_grad = False
             print(f"🧊 Epoch {epoch}: ResNet frozen")
         else:
             trainer.visual_encoder.unfreeze_resnet()
+            for param in trainer.audio_encoder.parameters():
+                param.requires_grad = True
             print(f"🔥 Epoch {epoch}: ResNet unfrozen")
         logging.info(f"\n📚 Epoch {epoch}/{max_epochs}")
         print(f"\n📚 Epoch {epoch}/{max_epochs}", flush=True)
-        loss = trainer.train_epoch(train_loader)
+        loss = trainer.train_epoch(train_loader, epoch)
         loss_history.append(loss)
 
         wer_score, sentence_acc = trainer.evaluate(val_loader)

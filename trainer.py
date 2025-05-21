@@ -46,7 +46,7 @@ class MultimodalTrainer:
             prev = idx
         return result
 
-    def train_epoch(self, dataloader):
+    def train_epoch(self, dataloader, epoch):
         print("✅ train_epoch() 짱입")
 
         self.visual_encoder.train()
@@ -84,7 +84,10 @@ class MultimodalTrainer:
             loss_audio = self.ctc_loss(log_probs_audio.transpose(0, 1), text1, input_lengths_audio, len1)
             loss_visual1 = self.ctc_loss(log_probs_visual1.transpose(0, 1), text1, input_lengths_visual1, len1)
 
-            loss = loss1 + 1.0 * loss_audio + 0.5 * loss_visual1
+            if epoch < 5:
+                loss = loss1 + 0.0 * loss_audio + 1.0 * loss_visual1
+            else:
+                loss = loss1 + 0.3 * loss_audio + 1.0 * loss_visual1
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item()
