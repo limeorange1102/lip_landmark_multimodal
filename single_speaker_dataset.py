@@ -29,8 +29,7 @@ class SingleSpeakerDataset(torch.utils.data.Dataset):
         # 🟠 Load visual input
         lip = np.load(s["lip_path"])
         if not self.use_landmark:
-            import cv2
-            lip = np.stack([cv2.resize(frame, (64, 64)) for frame in lip])  # [T, H, W, C]
+            lip = np.stack([frame for frame in lip])  # [T, H, W, C]
 
         # 🟠 Load label
         with open(s["text_path"], "r", encoding="utf-8") as f:
