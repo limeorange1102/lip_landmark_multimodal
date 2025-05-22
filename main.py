@@ -67,6 +67,14 @@ def main():
     train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
     val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=False)
 
+    train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
+
+    # ✅ problem sample 제거
+    problem_indices = [13173,  3711]
+    keep_indices = [i for i in range(len(train_dataset)) if i not in problem_indices]
+    from torch.utils.data import Subset
+    train_dataset = Subset(train_dataset, keep_indices)
+
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=2,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=2,
