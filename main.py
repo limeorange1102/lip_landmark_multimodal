@@ -67,9 +67,9 @@ def main():
     train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
     val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=False)
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=2,
+    train_loader = DataLoader(train_dataset, batch_size=3, shuffle=True, num_workers=2,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=2,
+    val_loader = DataLoader(val_dataset, batch_size=3, shuffle=False, num_workers=2,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
 
     visual_encoder = VisualEncoder(
@@ -157,8 +157,11 @@ def main():
             print(f"🧊 Epoch {epoch}: ResNet frozen")
         else:
             trainer.visual_encoder.unfreeze_resnet()
-            for param in trainer.audio_encoder.parameters():
-                param.requires_grad = True
+            for name, param in trainer.visual_encoder.resnet.named_parameters():
+                if any(k in name for k in ["layer2", "layer3", "layer4", "fc"]):
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
             print(f"🔥 Epoch {epoch}: ResNet unfrozen")
         logging.info(f"\n📚 Epoch {epoch}/{max_epochs}")
         print(f"\n📚 Epoch {epoch}/{max_epochs}", flush=True)
