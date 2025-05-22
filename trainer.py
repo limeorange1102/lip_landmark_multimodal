@@ -164,7 +164,7 @@ class MultimodalTrainer:
 
         all_refs1, all_hyps1 = [], []
         global_index = 0
-        sampled_indices = set(random.sample(range(len(dataloader.dataset)), min(50, len(dataloader.dataset))))
+        sampled_indices = set(random.sample(range(len(dataloader.dataset)), min(10, len(dataloader.dataset))))
 
         with torch.no_grad():
             for batch in dataloader:
