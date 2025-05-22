@@ -66,29 +66,29 @@ class MultimodalTrainer:
             text1 = batch["text1"].to(self.device)
             len1 = batch["text1_lengths"].to(self.device)
             lip1_lengths = batch["lip1_lengths"].to(self.device)
-
-            visual_feat1 = self.visual_encoder(lip1)
-            audio_feat = self.audio_encoder(audio, attention_mask=audio_mask)
-
-            fused_feat1 = self.fusion_module(visual_feat1, audio_feat)
-
-            input_lengths1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
-            input_lengths_audio = torch.full((audio_feat.size(0),), audio_feat.size(1), dtype=torch.long).to(self.device)
-            input_lengths_visual1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
-
-            log_probs1 = self.decoder1(fused_feat1)
-            log_probs_audio = self.decoder_audio(audio_feat)
-            log_probs_visual1 = self.decoder_visual(visual_feat1)
-
-            loss1 = self.ctc_loss(log_probs1.transpose(0, 1), text1, input_lengths1, len1)
-            loss_audio = self.ctc_loss(log_probs_audio.transpose(0, 1), text1, input_lengths_audio, len1)
-            loss_visual1 = self.ctc_loss(log_probs_visual1.transpose(0, 1), text1, input_lengths_visual1, len1)
-
-            if epoch < 5:
-                loss = loss1 + 0.0 * loss_audio + 1.0 * loss_visual1
-            else:
-                loss = loss1 + 0.3 * loss_audio + 1.0 * loss_visual1
             try:
+                visual_feat1 = self.visual_encoder(lip1)
+                audio_feat = self.audio_encoder(audio, attention_mask=audio_mask)
+
+                fused_feat1 = self.fusion_module(visual_feat1, audio_feat)
+
+                input_lengths1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
+                input_lengths_audio = torch.full((audio_feat.size(0),), audio_feat.size(1), dtype=torch.long).to(self.device)
+                input_lengths_visual1 = torch.full((visual_feat1.size(0),), visual_feat1.size(1), dtype=torch.long).to(self.device)
+
+                log_probs1 = self.decoder1(fused_feat1)
+                log_probs_audio = self.decoder_audio(audio_feat)
+                log_probs_visual1 = self.decoder_visual(visual_feat1)
+
+                loss1 = self.ctc_loss(log_probs1.transpose(0, 1), text1, input_lengths1, len1)
+                loss_audio = self.ctc_loss(log_probs_audio.transpose(0, 1), text1, input_lengths_audio, len1)
+                loss_visual1 = self.ctc_loss(log_probs_visual1.transpose(0, 1), text1, input_lengths_visual1, len1)
+
+                if epoch < 5:
+                    loss = loss1 + 0.0 * loss_audio + 1.0 * loss_visual1
+                else:
+                    loss = loss1 + 0.3 * loss_audio + 1.0 * loss_visual1
+
                 loss.backward()
                 self.optimizer.step()
                 total_loss += loss.item()
