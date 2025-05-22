@@ -67,9 +67,9 @@ def main():
     train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
     val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=False)
 
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=2,
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=0,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
-    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=2,
+    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=0,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
 
     visual_encoder = VisualEncoder(
