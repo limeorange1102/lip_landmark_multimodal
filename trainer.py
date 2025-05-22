@@ -88,9 +88,53 @@ class MultimodalTrainer:
                 loss = loss1 + 0.0 * loss_audio + 1.0 * loss_visual1
             else:
                 loss = loss1 + 0.3 * loss_audio + 1.0 * loss_visual1
-            loss.backward()
-            self.optimizer.step()
-            total_loss += loss.item()
+            try:
+                loss.backward()
+                self.optimizer.step()
+                total_loss += loss.item()
+            except torch.cuda.OutOfMemoryError:
+                print(f"⚠️ OOM at Batch {batch_idx} — fallback to batch size 1")
+                torch.cuda.empty_cache()
+                B = lip1.size(0)
+                safe_loss_total = 0
+                for i in range(B):
+                    try:
+                        self.optimizer.zero_grad()
+                        l1 = lip1[i:i+1]
+                        a = audio[i:i+1]
+                        a_mask = audio_mask[i:i+1]
+                        t1 = text1[i:i+1]
+                        l1_len = len1[i:i+1]
+                        lip1_len = lip1_lengths[i:i+1]
+
+                        vf1 = self.visual_encoder(l1)
+                        af = self.audio_encoder(a, attention_mask=a_mask)
+                        fused = self.fusion_module(vf1, af)
+
+                        in_len = torch.full((1,), vf1.size(1), dtype=torch.long).to(self.device)
+                        in_len_a = torch.full((1,), af.size(1), dtype=torch.long).to(self.device)
+                        in_len_v = torch.full((1,), vf1.size(1), dtype=torch.long).to(self.device)
+
+                        logp1 = self.decoder1(fused)
+                        logp_a = self.decoder_audio(af)
+                        logp_v = self.decoder_visual(vf1)
+
+                        loss1_1 = self.ctc_loss(logp1.transpose(0, 1), t1, in_len, l1_len)
+                        loss_audio_1 = self.ctc_loss(logp_a.transpose(0, 1), t1, in_len_a, l1_len)
+                        loss_visual_1 = self.ctc_loss(logp_v.transpose(0, 1), t1, in_len_v, l1_len)
+
+                        if epoch < 5:
+                            loss_f = loss1_1 + 0.0 * loss_audio_1 + 1.0 * loss_visual_1
+                        else:
+                            loss_f = loss1_1 + 0.3 * loss_audio_1 + 1.0 * loss_visual_1
+
+                        loss_f.backward()
+                        self.optimizer.step()
+                        safe_loss_total += loss_f.item()
+                    except torch.cuda.OutOfMemoryError:
+                        print(f"❌ Sample {i} still caused OOM — skipped")
+                        torch.cuda.empty_cache()
+                total_loss += safe_loss_total / max(B, 1)
 
             if batch_idx % 100 == 0:
                 pred_ids = torch.argmax(log_probs1[0], dim=-1).cpu().tolist()
