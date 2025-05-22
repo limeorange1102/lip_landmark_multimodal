@@ -42,5 +42,7 @@ def collate_fn(batch, pad_id=0, use_landmark=False):
         "text1_lengths": torch.tensor(text1_lengths),
 
         "audio": audio_padded,
-        "audio_attention_mask": attention_mask
+        "audio_attention_mask": attention_mask,
+
+        "index": torch.tensor([item["index"] for item in batch], dtype=torch.long)
     }
