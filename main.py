@@ -75,9 +75,9 @@ def main():
     from torch.utils.data import Subset
     train_dataset = Subset(train_dataset, keep_indices)
 
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=2,
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=4,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
-    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=2,
+    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=4,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
 
     visual_encoder = VisualEncoder(
