@@ -40,6 +40,7 @@ class SingleSpeakerDataset(torch.utils.data.Dataset):
             "lip1": lip.astype(np.float32),
             "label1": np.array(label, dtype=np.int64),
             "lip1_len": lip.shape[0],
+            "index": idx
         }
 
 

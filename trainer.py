@@ -94,6 +94,7 @@ class MultimodalTrainer:
                 total_loss += loss.item()
             except torch.cuda.OutOfMemoryError:
                 print(f"⚠️ OOM at Batch {batch_idx} — fallback to batch size 1")
+                print(f"🧭 Fallback 유발 sample indices: {batch['index']}")
                 torch.cuda.empty_cache()
                 B = lip1.size(0)
                 safe_loss_total = 0
