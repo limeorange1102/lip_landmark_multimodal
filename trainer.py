@@ -127,7 +127,7 @@ class MultimodalTrainer:
                         if epoch < 5:
                             loss_f = loss1_1 + 0.0 * loss_audio_1 + 1.0 * loss_visual_1
                         else:
-                            loss_f = loss1_1 + 0.3 * loss_audio_1 + 2.0 * loss_visual_1
+                            loss_f = loss1_1 + 1.0 * loss_audio_1 + 1.0 * loss_visual_1
 
                         loss_f.backward()
                         self.optimizer.step()
