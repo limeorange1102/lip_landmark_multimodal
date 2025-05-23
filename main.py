@@ -137,7 +137,7 @@ def main():
 
     patience = 5
     no_improve_counter = 0
-    max_epochs = 20
+    max_epochs = 40
 
     if os.path.exists(last_ckpt_path):
         logging.info("🔁 기전 체크포인트 불러오는 중...")
