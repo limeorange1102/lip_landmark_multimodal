@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 
 from single_speaker_dataset import SingleSpeakerDataset
 from collate_fn import collate_fn
-from encoder import VisualEncoder, AudioEncoder
-from fusion_module import CrossAttentionFusion
+from encoder import VisualEncoder
 from decoder import CTCDecoder
 from trainer import MultimodalTrainer
 from tokenizer import Tokenizer
@@ -30,10 +29,6 @@ def save_checkpoint(epoch, trainer, path):
     torch.save({
         'epoch': epoch,
         'visual_encoder': trainer.visual_encoder.state_dict(),
-        'audio_encoder': trainer.audio_encoder.state_dict(),
-        'fusion': trainer.fusion_module.state_dict(),
-        'decoder1': trainer.decoder1.state_dict(),
-        'decoder_audio': trainer.decoder_audio.state_dict(),
         'decoder_visual': trainer.decoder_visual.state_dict(),
         'optimizer': trainer.optimizer.state_dict(),
     }, path)
@@ -41,10 +36,6 @@ def save_checkpoint(epoch, trainer, path):
 def load_checkpoint(trainer, path):
     checkpoint = torch.load(path, map_location=trainer.device)
     trainer.visual_encoder.load_state_dict(checkpoint['visual_encoder'])
-    trainer.audio_encoder.load_state_dict(checkpoint['audio_encoder'])
-    trainer.fusion_module.load_state_dict(checkpoint['fusion'])
-    trainer.decoder1.load_state_dict(checkpoint['decoder1'])
-    trainer.decoder_audio.load_state_dict(checkpoint['decoder_audio'])
     trainer.decoder_visual.load_state_dict(checkpoint['decoder_visual'])
     trainer.optimizer.load_state_dict(checkpoint['optimizer'])
     return checkpoint['epoch'] + 1
@@ -67,7 +58,6 @@ def main():
     train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
     val_dataset = SingleSpeakerDataset(val_sent, tokenizer, use_landmark=False)
 
-    train_dataset = SingleSpeakerDataset(train_sent, tokenizer, use_landmark=False)
 
     # ✅ problem sample 제거
     problem_indices = [13173,  3711]
@@ -75,36 +65,13 @@ def main():
     from torch.utils.data import Subset
     train_dataset = Subset(train_dataset, keep_indices)
 
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=4,
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
-    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False, num_workers=4,
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4,
                             collate_fn=lambda x: collate_fn(x, use_landmark=False))
 
-    visual_encoder = VisualEncoder(
-        hidden_dim=256,
-        lstm_layers=2,
-        bidirectional=True
-    )
-
-    audio_encoder = AudioEncoder(freeze=False)
-
-    fusion = CrossAttentionFusion(
-        visual_dim=visual_encoder.output_dim,
-        audio_dim=audio_encoder.output_dim,
-        fused_dim=512
-    )
-
-    decoder1 = CTCDecoder(
-        input_dim=1024,
-        vocab_size=tokenizer.vocab_size,
-        blank_id=tokenizer.blank_id
-    )
-
-    decoder_audio = CTCDecoder(
-        input_dim=audio_encoder.output_dim,
-        vocab_size=tokenizer.vocab_size,
-        blank_id=tokenizer.blank_id
-    )
+    visual_encoder = VisualEncoder(output_dim=512)
+    visual_encoder.load_state_dict(torch.load("weights/Video_only_model.pt"), strict=True)
 
     decoder_visual = CTCDecoder(
         input_dim=visual_encoder.output_dim,
@@ -115,8 +82,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     trainer = MultimodalTrainer(
-        visual_encoder, audio_encoder, fusion,
-        decoder1, decoder_audio, decoder_visual,
+        visual_encoder, decoder_visual,
         tokenizer,
         learning_rate=1e-4,
         device=device
@@ -160,16 +126,10 @@ def main():
         # ✅ ResNet freeze/unfreeze 조절
         if epoch < 5:
             trainer.visual_encoder.freeze_resnet()
-            for param in trainer.audio_encoder.parameters():
-                param.requires_grad = False
             print(f"🧊 Epoch {epoch}: ResNet frozen")
         else:
             trainer.visual_encoder.unfreeze_resnet()
-            for name, param in trainer.visual_encoder.resnet.named_parameters():
-                if any(k in name for k in ["layer2", "layer3", "layer4", "fc"]):
-                    param.requires_grad = True
-                else:
-                    param.requires_grad = False
+
             print(f"🔥 Epoch {epoch}: ResNet unfrozen")
         logging.info(f"\n📚 Epoch {epoch}/{max_epochs}")
         print(f"\n📚 Epoch {epoch}/{max_epochs}", flush=True)
@@ -199,26 +159,6 @@ def main():
         else:
             no_improve_counter += 1
             print(f"🔻 성능 감소 무: {no_improve_counter}/{patience}, best wer/werscore = {best_wer}/{wer_score}", flush=True)
-
-    # 시각화
-    plt.figure(figsize=(10, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(range(start_epoch, start_epoch + len(loss_history)), loss_history, marker='o', color='orange')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title("Training Loss over Epochs")
-    plt.grid(True)
-
-    plt.subplot(1, 2, 2)
-    plt.plot(range(start_epoch, start_epoch + len(wer_history)), wer_history, marker='o')
-    plt.xlabel("Epoch")
-    plt.ylabel("WER")
-    plt.title("Validation WER over Epochs")
-    plt.grid(True)
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(drive_ckpt_dir, "metrics_plot.png"))
-    plt.show()
-
+    
 if __name__ == "__main__":
     main()

@@ -25,24 +25,12 @@ def collate_fn(batch, pad_id=0, use_landmark=False):
     text1_lengths = [len(seq) for seq in text1_seqs]
     text1_padded = pad_sequence(text1_seqs, batch_first=True, padding_value=pad_id)
 
-    # ✅ 오디오
-    audio_seqs = [torch.tensor(item["audio"], dtype=torch.float32) for item in batch]
-    audio_lengths = [seq.shape[0] for seq in audio_seqs]
-    audio_padded = pad_sequence(audio_seqs, batch_first=True)
-
-    attention_mask = torch.zeros_like(audio_padded, dtype=torch.bool)
-    for i, length in enumerate(audio_lengths):
-        attention_mask[i, :length] = 1
-
     return {
         "lip1": lip1_padded,                       # [B, T, 27, 2] or [B, T, C, H, W]
         "lip1_lengths": torch.tensor(lip1_lengths, dtype=torch.long),
 
         "text1": text1_padded,
         "text1_lengths": torch.tensor(text1_lengths),
-
-        "audio": audio_padded,
-        "audio_attention_mask": attention_mask,
 
         "index": torch.tensor([item["index"] for item in batch], dtype=torch.long)
     }

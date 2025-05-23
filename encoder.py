@@ -1,71 +1,58 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet34, ResNet34_Weights
+import torch.nn.functional as F
+import torchvision.models as models
 from transformers import Wav2Vec2Model
 
 # -------------------------------
 # 📌 영상 인코더: VisualEncoder
 # -------------------------------
 class VisualEncoder(nn.Module):
-    def __init__(self, hidden_dim=128, lstm_layers=2, bidirectional=True):
+    def __init__(self, output_dim=512):
         super().__init__()
 
-        # ✅ ImageNet pretrained ResNet34 로드
-        self.resnet = resnet34(weights=ResNet34_Weights.IMAGENET1K_V1)
-        self.resnet.fc = nn.Identity()  # classification head 제거
-
-        # ✅ 정규화 및 드롭아웃 추가
-        self.norm = nn.BatchNorm1d(512)
-        self.dropout = nn.Dropout(p=0.3)
-
-        # ✅ LSTM temporal modeling
-        self.rnn = nn.LSTM(
-            input_size=512,  # ResNet 마지막 feature dimension
-            hidden_size=hidden_dim,
-            num_layers=lstm_layers,
-            batch_first=True,
-            bidirectional=bidirectional
+        # 3D Convolution Frontend
+        self.frontend3D = nn.Sequential(
+            nn.Conv3d(1, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3)),
+            nn.BatchNorm3d(64),
+            nn.ReLU(inplace=True),
         )
 
-        self.output_dim = hidden_dim * 2 if bidirectional else hidden_dim
+        # ResNet-34 Backbone (excluding FC)
+        resnet = models.resnet34(pretrained=False)
+        self.resnet = nn.Sequential(*list(resnet.children())[:-2])  # up to layer4 (no avgpool/fc)
+
+        # BiGRU
+        self.gru = nn.GRU(
+            input_size=512,  # assuming resnet output flattened to 512
+            hidden_size=output_dim // 2,
+            num_layers=2,
+            batch_first=True,
+            bidirectional=True
+        )
+
+        self.output_dim = output_dim
 
     def freeze_resnet(self):
         for param in self.resnet.parameters():
             param.requires_grad = False
 
-    def unfreeze_resnet(self):
-        for param in self.resnet.parameters():
-            param.requires_grad = True
+    def unfreeze_resnet(self, layers=("layer2", "layer3", "layer4")):
+        for name, param in self.resnet.named_parameters():
+            param.requires_grad = any(k in name for k in layers)
 
     def forward(self, x):
-        # x: (B, T, C, H, W)
-        B, T, C, H, W = x.shape
-        x = x.view(B * T, C, H, W)              # (B*T, C, H, W)
+        # x: (B, T, C=1, H, W)
+        x = x.permute(0, 2, 1, 3, 4)  # (B, C=1, T, H, W)
+        x = self.frontend3D(x)       # (B, 64, T, H', W')
 
-        # ✅ 입력 해상도를 ResNet 기대값에 맞게 조정 (224x224)
-        x = nn.functional.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
+        B, C, T, H, W = x.shape
+        x = x.permute(0, 2, 1, 3, 4).reshape(B * T, C, H, W)  # (B*T, C, H, W)
+        x = self.resnet(x)  # (B*T, 512, H', W')
 
-        feats = self.resnet(x)                  # (B*T, 512)
-        feats = self.norm(feats)               # (B*T, 512) 정규화
-        feats = self.dropout(feats)            # (B*T, 512) 드롭아웃
-        feats = feats.view(B, T, -1)            # (B, T, 512)
-        output, _ = self.rnn(feats)             # (B, T, hidden_dim*2)
-        return output
+        x = F.adaptive_avg_pool2d(x, (1, 1)).squeeze(-1).squeeze(-1)  # (B*T, 512)
+        x = x.view(B, T, -1)  # (B, T, 512)
 
+        x, _ = self.gru(x)  # (B, T, output_dim)
+        return x
 
-# -------------------------------
-# 🎧 음성 인코더: HuggingFaceAudioEncoder
-# -------------------------------
-class AudioEncoder(nn.Module):
-    def __init__(self, model_name="kresnik/wav2vec2-large-xlsr-korean", freeze=True):
-        super().__init__()
-        self.model = Wav2Vec2Model.from_pretrained(model_name)
-        self.output_dim = self.model.config.hidden_size
-        if freeze:
-            for param in self.model.parameters():
-                param.requires_grad = False
-
-    def forward(self, x, attention_mask=None):
-        # x: [B, T], attention_mask: [B, T]
-        output = self.model(input_values=x, attention_mask=attention_mask, return_dict=True)
-        return output.last_hidden_state  # [B, T, output_dim]
