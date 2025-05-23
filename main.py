@@ -198,11 +198,7 @@ def main():
             print("🏅 Best 모델 갱신 및 저장 완료", flush=True)
         else:
             no_improve_counter += 1
-            print(f"🔻 성능 감소 무: {no_improve_counter}/{patience}", flush=True)
-
-        if no_improve_counter >= patience:
-            print("🚫 Early stopping triggered! 학습 중단.", flush=True)
-            break
+            print(f"🔻 성능 감소 무: {no_improve_counter}/{patience}, best wer/werscore = {best_wer}/{wer_score}", flush=True)
 
     # 시각화
     plt.figure(figsize=(10, 4))
