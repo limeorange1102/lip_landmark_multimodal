@@ -124,10 +124,14 @@ class MultimodalTrainer:
                         loss_audio_1 = self.ctc_loss(logp_a.transpose(0, 1), t1, in_len_a, l1_len)
                         loss_visual_1 = self.ctc_loss(logp_v.transpose(0, 1), t1, in_len_v, l1_len)
 
-                        if epoch < 5:
-                            loss_f = loss1_1 + 0.0 * loss_audio_1 + 1.0 * loss_visual_1
-                        else:
+                        if epoch < 21:
+                            loss_f = loss1_1 + 0.3 * loss_audio_1 + 1.5 * loss_visual_1
+                        elif epoch < 31:
+                            loss_f = loss1_1 + 0.7 * loss_audio_1 + 1.3 * loss_visual_1
+                        elif epoch < 41:
                             loss_f = loss1_1 + 1.0 * loss_audio_1 + 1.0 * loss_visual_1
+                        else:
+                            loss_f = loss1_1
 
                         loss_f.backward()
                         self.optimizer.step()
